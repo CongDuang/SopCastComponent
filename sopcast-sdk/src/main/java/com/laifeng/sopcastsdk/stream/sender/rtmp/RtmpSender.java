@@ -30,7 +30,7 @@ public class RtmpSender implements Sender, SendQueueListener {
         mHandler.post(new Runnable() {
             @Override
             public void run() {
-                if(mListener != null) {
+                if (mListener != null) {
                     mListener.onNetGood();
                 }
             }
@@ -42,7 +42,7 @@ public class RtmpSender implements Sender, SendQueueListener {
         mHandler.post(new Runnable() {
             @Override
             public void run() {
-                if(mListener != null) {
+                if (mListener != null) {
                     mListener.onNetBad();
                 }
             }
@@ -51,10 +51,15 @@ public class RtmpSender implements Sender, SendQueueListener {
 
     public interface OnSenderListener {
         void onConnecting();
+
         void onConnected();
+
         void onDisConnected();
+
         void onPublishFail();
+
         void onNetGood();
+
         void onNetBad();
     }
 
@@ -64,6 +69,10 @@ public class RtmpSender implements Sender, SendQueueListener {
 
     public void setAddress(String url) {
         mRtmpUrl = url;
+    }
+
+    public String getAddress() {
+        return mRtmpUrl;
     }
 
     public void setSendQueue(ISendQueue sendQueue) {
@@ -90,7 +99,7 @@ public class RtmpSender implements Sender, SendQueueListener {
                 connectNotInUi();
             }
         }).start();
-        if(mListener != null) {
+        if (mListener != null) {
             mListener.onConnecting();
         }
     }
@@ -109,9 +118,9 @@ public class RtmpSender implements Sender, SendQueueListener {
 
     @Override
     public void onData(byte[] data, int type) {
-        if(type == RtmpPacker.FIRST_AUDIO || type == RtmpPacker.AUDIO) {
+        if (type == RtmpPacker.FIRST_AUDIO || type == RtmpPacker.AUDIO) {
             rtmpConnection.publishAudioData(data, type);
-        } else if(type == RtmpPacker.FIRST_VIDEO ||
+        } else if (type == RtmpPacker.FIRST_VIDEO ||
                 type == RtmpPacker.INTER_FRAME || type == RtmpPacker.KEY_FRAME) {
             rtmpConnection.publishVideoData(data, type);
         }
@@ -176,7 +185,7 @@ public class RtmpSender implements Sender, SendQueueListener {
             mHandler.post(new Runnable() {
                 @Override
                 public void run() {
-                    if(mListener != null) {
+                    if (mListener != null) {
                         mListener.onConnected();
                     }
                 }
@@ -203,7 +212,7 @@ public class RtmpSender implements Sender, SendQueueListener {
         mHandler.post(new Runnable() {
             @Override
             public void run() {
-                if(mListener != null) {
+                if (mListener != null) {
                     mListener.onDisConnected();
                 }
             }
@@ -214,7 +223,7 @@ public class RtmpSender implements Sender, SendQueueListener {
         mHandler.post(new Runnable() {
             @Override
             public void run() {
-                if(mListener != null) {
+                if (mListener != null) {
                     mListener.onPublishFail();
                 }
             }

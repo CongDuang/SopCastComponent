@@ -16,6 +16,8 @@ public interface CameraListener {
     int CAMERA_OPEN_FAILED = 4;
 
     void onOpenSuccess();
+
     void onOpenFail(int error);
+
     void onCameraChange();
 }

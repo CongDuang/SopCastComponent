@@ -83,7 +83,7 @@ public class PortraitActivity extends Activity {
         mBeautyBtn.setOnStateChangeListener(new MultiToggleImageButton.OnStateChangeListener() {
             @Override
             public void stateChanged(View view, int state) {
-                if(isGray) {
+                if (isGray) {
                     mLFLiveView.setEffect(mNullEffect);
                     isGray = false;
                 } else {
@@ -101,7 +101,7 @@ public class PortraitActivity extends Activity {
         mRecordBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(isRecording) {
+                if (isRecording) {
                     mRecordBtn.setBackgroundResource(R.mipmap.ic_record_start);
                     mLFLiveView.stop();
                     isRecording = false;
@@ -142,10 +142,10 @@ public class PortraitActivity extends Activity {
         //初始化flv打包器
         FlvPacker packer = new FlvPacker();
         packer.initAudioParams(AudioConfiguration.DEFAULT_FREQUENCY, 16, false);
-        packer.initVideoParams(360, 640, 24);
+        packer.initVideoParams(720, 1280, 24);
         mLFLiveView.setPacker(packer);
         //设置发送器
-        mLFLiveView.setSender(new LocalSender());
+        mLFLiveView.setSender(new LocalSender(this));
         //设置手势识别
         mGestureDetector = new GestureDetector(this, new GestureListener());
         mLFLiveView.setOnTouchListener(new View.OnTouchListener() {

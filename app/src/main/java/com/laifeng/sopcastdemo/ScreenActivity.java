@@ -63,7 +63,7 @@ public class ScreenActivity extends ScreenRecordActivity {
 
     private void initRtmpAddressDialog() {
         LayoutInflater inflater = getLayoutInflater();
-        View playView = inflater.inflate(R.layout.address_dialog,(ViewGroup) findViewById(R.id.dialog));
+        View playView = inflater.inflate(R.layout.address_dialog, (ViewGroup) findViewById(R.id.dialog));
         mAddressET = (EditText) playView.findViewById(R.id.address);
         Button okBtn = (Button) playView.findViewById(R.id.ok);
         Button cancelBtn = (Button) playView.findViewById(R.id.cancel);
@@ -75,7 +75,7 @@ public class ScreenActivity extends ScreenRecordActivity {
             @Override
             public void onClick(View v) {
                 String uploadUrl = mAddressET.getText().toString();
-                if(TextUtils.isEmpty(uploadUrl)) {
+                if (TextUtils.isEmpty(uploadUrl)) {
                     Toast.makeText(ScreenActivity.this, "Upload address is empty!", Toast.LENGTH_SHORT).show();
                 } else {
                     mRtmpSender.setAddress(uploadUrl);
@@ -150,11 +150,11 @@ public class ScreenActivity extends ScreenRecordActivity {
 
         @Override
         public void onNetGood() {
-            if (mCurrentBps + 50 <= mVideoConfiguration.maxBps){
+            if (mCurrentBps + 50 <= mVideoConfiguration.maxBps) {
                 SopCastLog.d(TAG, "BPS_CHANGE good up 50");
                 int bps = mCurrentBps + 50;
                 boolean result = setRecordBps(bps);
-                if(result) {
+                if (result) {
                     mCurrentBps = bps;
                 }
             } else {
@@ -165,11 +165,11 @@ public class ScreenActivity extends ScreenRecordActivity {
 
         @Override
         public void onNetBad() {
-            if (mCurrentBps - 100 >= mVideoConfiguration.minBps){
+            if (mCurrentBps - 100 >= mVideoConfiguration.minBps) {
                 SopCastLog.d(TAG, "BPS_CHANGE bad down 100");
                 int bps = mCurrentBps - 100;
                 boolean result = setRecordBps(bps);
-                if(result) {
+                if (result) {
                     mCurrentBps = bps;
                 }
             } else {

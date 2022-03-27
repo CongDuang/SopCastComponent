@@ -14,20 +14,20 @@ public final class CameraConfiguration {
     public static final int DEFAULT_WIDTH = 720;
     public static final int DEFAULT_FPS = 15;
     public static final Facing DEFAULT_FACING = Facing.FRONT;
-    public static final Orientation DEFAULT_ORIENTATION = Orientation.PORTRAIT;
+    public static final Orientation DEFAULT_ORIENTATION = Orientation.LANDSCAPE;
     public static final FocusMode DEFAULT_FOCUSMODE = FocusMode.AUTO;
 
-    public enum  Facing {
+    public enum Facing {
         FRONT,
         BACK
     }
 
-    public enum  Orientation {
+    public enum Orientation {
         LANDSCAPE,
         PORTRAIT
     }
 
-    public enum  FocusMode {
+    public enum FocusMode {
         AUTO,
         TOUCH
     }
@@ -61,7 +61,7 @@ public final class CameraConfiguration {
         private Orientation orientation = DEFAULT_ORIENTATION;
         private FocusMode focusMode = DEFAULT_FOCUSMODE;
 
-        public Builder setPreview(int height, int width) {
+        public Builder setPreview(int width, int height) {
             this.height = height;
             this.width = width;
             return this;

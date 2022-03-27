@@ -13,7 +13,7 @@ import android.media.MediaCodecInfo;
  * @Version
  */
 public final class AudioConfiguration {
-    public static final int DEFAULT_FREQUENCY = 44100;
+    public static final int DEFAULT_FREQUENCY = 16000;
     public static final int DEFAULT_MAX_BPS = 64;
     public static final int DEFAULT_MIN_BPS = 32;
     public static final int DEFAULT_ADTS = 0;

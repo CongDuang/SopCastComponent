@@ -25,7 +25,7 @@ import java.nio.FloatBuffer;
  * @Version
  */
 @TargetApi(18)
-public class RenderScreen {
+public class RtcRenderScreen {
     private final FloatBuffer mNormalVtxBuf = GlUtil.createVertexBuffer();
     private final FloatBuffer mNormalTexCoordBuf = GlUtil.createTexCoordBuffer();
     private final float[] mPosMtx = GlUtil.createIdentityMtx();
@@ -53,16 +53,26 @@ public class RenderScreen {
     private FloatBuffer mQrcodeVertexBuffer;
     private int mQrCodeTextureId = -1;
 
-    public RenderScreen(int id) {
+    private final int[] mFboId = new int[]{0};
+    private final int[] mRboId = new int[]{0};
+    private final int[] mTexId = new int[]{0};
+
+    private long mTimestamp = -1;
+
+    public RtcRenderScreen(int id) {
         mFboTexId = id;
         initGL();
+    }
+
+    public long getTimestamp() {
+        return mTimestamp;
     }
 
     public void setScreenSize(int width, int height) {
         mScreenW = width;
         mScreenH = height;
-
         initCameraTexCoordBuffer();
+        createFBOTexture();
     }
 
     public void setTextureId(int textureId) {
@@ -70,7 +80,7 @@ public class RenderScreen {
     }
 
     public int getTextureId() {
-        return mFboTexId;
+        return mTexId[0];
     }
 
     public void setVideoSize(int width, int height) {
@@ -194,10 +204,10 @@ public class RenderScreen {
             bottomY = -temp;
         }
         final float watermarkCoords[] = {
-                leftX, bottomY, 0.0f,
-                leftX, topY, 0.0f,
-                rightX, bottomY, 0.0f,
-                rightX, topY, 0.0f
+                leftX, -bottomY, 0.0f,
+                leftX, -topY, 0.0f,
+                rightX, -bottomY, 0.0f,
+                rightX, -topY, 0.0f
         };
         ByteBuffer bb = ByteBuffer.allocateDirect(watermarkCoords.length * 4);
         bb.order(ByteOrder.nativeOrder());
@@ -227,10 +237,10 @@ public class RenderScreen {
 
 
         final float qrcodeResultCoords[] = {
-                leftX, bottomY, 0.0f, // bottom left
-                leftX, topY, 0.0f,//top left
-                rightX, bottomY, 0.0f, // bottom right
-                rightX, topY, 0.0f// top right
+                leftX, -bottomY, 0.0f, // bottom left
+                leftX, -topY, 0.0f,//top left
+                rightX, -bottomY, 0.0f, // bottom right
+                rightX, -topY, 0.0f// top right
         };
         ByteBuffer bb = ByteBuffer.allocateDirect(qrcodeResultCoords.length * 4);
         bb.order(ByteOrder.nativeOrder());
@@ -244,9 +254,9 @@ public class RenderScreen {
             return;
         }
         GlUtil.checkGlError("draw_S");
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, mFboId[0]);
 
         GLES20.glViewport(0, 0, mScreenW, mScreenH);
-
         GLES20.glClearColor(0.5f, 0.5f, 0.5f, 1f);
         GLES20.glClear(GLES20.GL_DEPTH_BUFFER_BIT | GLES20.GL_COLOR_BUFFER_BIT);
 
@@ -263,7 +273,7 @@ public class RenderScreen {
         GLES20.glEnableVertexAttribArray(maTexCoordHandle);
 
         GLES20.glUniformMatrix4fv(muPosMtxHandle, 1, false, mPosMtx, 0);
-        GLES20.glUniform1i(muSamplerHandle, 0);
+//        GLES20.glUniform1i(muSamplerHandle, 0);
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mFboTexId);
@@ -277,7 +287,11 @@ public class RenderScreen {
         // 扫码结果
         drawQrCodeResult();
 
+        unBindFBO();
+
         GlUtil.checkGlError("draw_E");
+
+        mTimestamp = System.currentTimeMillis();
     }
 
     private void drawWatermark() {
@@ -392,15 +406,46 @@ public class RenderScreen {
         GlUtil.checkGlError("initGL_E");
     }
 
-    private int createFrameBuffer() {
-        int[] fobId = new int[1];
-        GLES20.glGenFramebuffers(1, fobId, 0);
-        return fobId[0];
-    }
+    private void createFBOTexture() {
+        if (CameraHolder.instance().getState() != CameraHolder.State.PREVIEW) {
+            return;
+        }
+        GlUtil.checkGlError("initFBO_S");
+        GLES20.glGenFramebuffers(1, mFboId, 0);
+        GLES20.glGenRenderbuffers(1, mRboId, 0);
+        GLES20.glGenTextures(1, mTexId, 0);
 
-    private void bindFBO(int fobId, int texutureId) {
-        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fobId);
-        GLES20.glFramebufferTexture2D(GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0, GLES20.GL_TEXTURE_2D, texutureId, 0);
+        GLES20.glBindRenderbuffer(GLES20.GL_RENDERBUFFER, mRboId[0]);
+        GLES20.glRenderbufferStorage(GLES20.GL_RENDERBUFFER,
+                GLES20.GL_DEPTH_COMPONENT16, mScreenW, mScreenH);
+
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, mFboId[0]);
+        GLES20.glFramebufferRenderbuffer(GLES20.GL_FRAMEBUFFER,
+                GLES20.GL_DEPTH_ATTACHMENT, GLES20.GL_RENDERBUFFER, mRboId[0]);
+
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mTexId[0]);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,
+                GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,
+                GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,
+                GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,
+                GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
+
+        GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA,
+                mScreenW, mScreenH, 0, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, null);
+
+        GLES20.glFramebufferTexture2D(GLES20.GL_FRAMEBUFFER,
+                GLES20.GL_COLOR_ATTACHMENT0, GLES20.GL_TEXTURE_2D, mTexId[0], 0);
+
+        if (GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER) !=
+                GLES20.GL_FRAMEBUFFER_COMPLETE) {
+            throw new RuntimeException("glCheckFramebufferStatus()");
+        }
+
+        GlUtil.checkGlError("initFBO_E");
     }
 
     private void unBindFBO() {

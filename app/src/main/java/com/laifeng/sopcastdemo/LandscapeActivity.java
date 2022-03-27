@@ -2,12 +2,12 @@ package com.laifeng.sopcastdemo;
 
 import android.app.Activity;
 import android.app.Dialog;
-import android.content.DialogInterface;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.support.v7.app.AlertDialog;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.GestureDetector;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -26,7 +26,9 @@ import com.laifeng.sopcastsdk.configuration.CameraConfiguration;
 import com.laifeng.sopcastsdk.configuration.VideoConfiguration;
 import com.laifeng.sopcastsdk.entity.Watermark;
 import com.laifeng.sopcastsdk.entity.WatermarkPosition;
+import com.laifeng.sopcastsdk.stream.packer.flv.FlvPacker;
 import com.laifeng.sopcastsdk.stream.packer.rtmp.RtmpPacker;
+import com.laifeng.sopcastsdk.stream.sender.local.LocalSender;
 import com.laifeng.sopcastsdk.stream.sender.rtmp.RtmpSender;
 import com.laifeng.sopcastsdk.ui.CameraLivingView;
 import com.laifeng.sopcastsdk.utils.SopCastLog;
@@ -35,7 +37,9 @@ import com.laifeng.sopcastsdk.video.effect.NullEffect;
 
 import static com.laifeng.sopcastsdk.constant.SopCastConstant.TAG;
 
-public class LandscapeActivity extends Activity {
+import java.io.File;
+
+public class LandscapeActivity extends Activity implements LocalSender.onLocalSenderListener {
     private CameraLivingView mLFLiveView;
     private MultiToggleImageButton mMicBtn;
     private MultiToggleImageButton mFlashBtn;
@@ -54,6 +58,7 @@ public class LandscapeActivity extends Activity {
     private int mCurrentBps;
     private Dialog mUploadDialog;
     private EditText mAddressET;
+    private LocalSender mLocalSender;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -104,7 +109,7 @@ public class LandscapeActivity extends Activity {
         mBeautyBtn.setOnStateChangeListener(new MultiToggleImageButton.OnStateChangeListener() {
             @Override
             public void stateChanged(View view, int state) {
-                if(isGray) {
+                if (isGray) {
                     mLFLiveView.setEffect(mNullEffect);
                     isGray = false;
                 } else {
@@ -122,7 +127,7 @@ public class LandscapeActivity extends Activity {
         mRecordBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(isRecording) {
+                if (isRecording) {
                     mProgressConnecting.setVisibility(View.GONE);
                     Toast.makeText(LandscapeActivity.this, "stop living", Toast.LENGTH_SHORT).show();
                     mRecordBtn.setBackgroundResource(R.mipmap.ic_record_start);
@@ -137,7 +142,7 @@ public class LandscapeActivity extends Activity {
 
     private void initRtmpAddressDialog() {
         LayoutInflater inflater = getLayoutInflater();
-        View playView = inflater.inflate(R.layout.address_dialog,(ViewGroup) findViewById(R.id.dialog));
+        View playView = inflater.inflate(R.layout.address_dialog, (ViewGroup) findViewById(R.id.dialog));
         mAddressET = (EditText) playView.findViewById(R.id.address);
         Button okBtn = (Button) playView.findViewById(R.id.ok);
         Button cancelBtn = (Button) playView.findViewById(R.id.cancel);
@@ -149,7 +154,7 @@ public class LandscapeActivity extends Activity {
             @Override
             public void onClick(View v) {
                 String uploadUrl = mAddressET.getText().toString();
-                if(TextUtils.isEmpty(uploadUrl)) {
+                if (TextUtils.isEmpty(uploadUrl)) {
                     Toast.makeText(LandscapeActivity.this, "Upload address is empty!", Toast.LENGTH_SHORT).show();
                 } else {
                     mRtmpSender.setAddress(uploadUrl);
@@ -180,7 +185,7 @@ public class LandscapeActivity extends Activity {
         mLFLiveView.setCameraConfiguration(cameraConfiguration);
 
         VideoConfiguration.Builder videoBuilder = new VideoConfiguration.Builder();
-        videoBuilder.setSize(640, 360);
+        videoBuilder.setSize(1280, 720);
         mVideoConfiguration = videoBuilder.build();
         mLFLiveView.setVideoConfiguration(mVideoConfiguration);
 
@@ -227,6 +232,17 @@ public class LandscapeActivity extends Activity {
         mRtmpSender.setAudioParams(AudioConfiguration.DEFAULT_FREQUENCY, 16, false);
         mRtmpSender.setSenderListener(mSenderListener);
         mLFLiveView.setSender(mRtmpSender);
+
+        // 本地打包器 和 发送器
+        FlvPacker flvPacker = new FlvPacker();
+        flvPacker.initVideoParams(1280, 720, 15);
+        flvPacker.initAudioParams(AudioConfiguration.DEFAULT_FREQUENCY, 16, false);
+        mLFLiveView.setLocalPacker(flvPacker);
+        mLocalSender = new LocalSender(this);
+        mLocalSender.setDirName("flv");
+        mLocalSender.setOnLocalSenderListener(this);
+        mLFLiveView.setLocalSender(mLocalSender);
+
         mLFLiveView.setLivingStartListener(new CameraLivingView.LivingStartListener() {
             @Override
             public void startError(int error) {
@@ -252,6 +268,7 @@ public class LandscapeActivity extends Activity {
         @Override
         public void onConnected() {
             mProgressConnecting.setVisibility(View.GONE);
+            mLocalSender.setFileName("userid_" + System.currentTimeMillis());
             mLFLiveView.start();
             mCurrentBps = mVideoConfiguration.maxBps;
         }
@@ -275,12 +292,12 @@ public class LandscapeActivity extends Activity {
 
         @Override
         public void onNetGood() {
-            if (mCurrentBps + 50 <= mVideoConfiguration.maxBps){
+            if (mCurrentBps + 50 <= mVideoConfiguration.maxBps) {
                 SopCastLog.d(TAG, "BPS_CHANGE good up 50");
                 int bps = mCurrentBps + 50;
-                if(mLFLiveView != null) {
+                if (mLFLiveView != null) {
                     boolean result = mLFLiveView.setVideoBps(bps);
-                    if(result) {
+                    if (result) {
                         mCurrentBps = bps;
                     }
                 }
@@ -292,12 +309,12 @@ public class LandscapeActivity extends Activity {
 
         @Override
         public void onNetBad() {
-            if (mCurrentBps - 100 >= mVideoConfiguration.minBps){
+            if (mCurrentBps - 100 >= mVideoConfiguration.minBps) {
                 SopCastLog.d(TAG, "BPS_CHANGE bad down 100");
                 int bps = mCurrentBps - 100;
-                if(mLFLiveView != null) {
+                if (mLFLiveView != null) {
                     boolean result = mLFLiveView.setVideoBps(bps);
-                    if(result) {
+                    if (result) {
                         mCurrentBps = bps;
                     }
                 }
@@ -307,6 +324,16 @@ public class LandscapeActivity extends Activity {
             SopCastLog.d(TAG, "Current Bps: " + mCurrentBps);
         }
     };
+
+    @Override
+    public void onLocalSendStart() {
+        Log.d(TAG, "onLocalSendStart: ============== 开始本地录屏");
+    }
+
+    @Override
+    public void onLocalSendFinish(File flvVideoFile) {
+        Log.d(TAG, "==============" + flvVideoFile.getAbsolutePath() + "=================================结束录屏");
+    }
 
     public class GestureListener extends GestureDetector.SimpleOnGestureListener {
         @Override

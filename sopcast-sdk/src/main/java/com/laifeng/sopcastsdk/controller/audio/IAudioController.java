@@ -1,5 +1,6 @@
 package com.laifeng.sopcastsdk.controller.audio;
 
+import com.laifeng.sopcastsdk.audio.AudioRealTimeListener;
 import com.laifeng.sopcastsdk.audio.OnAudioEncodeListener;
 import com.laifeng.sopcastsdk.configuration.AudioConfiguration;
 
@@ -22,4 +23,5 @@ public interface IAudioController {
     int getSessionId();
     void setAudioConfiguration(AudioConfiguration audioConfiguration);
     void setAudioEncodeListener(OnAudioEncodeListener listener);
+    void setAudioRealTimeListener(AudioRealTimeListener listener);
 }

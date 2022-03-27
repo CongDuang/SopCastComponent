@@ -4,9 +4,6 @@ import android.media.AudioRecord;
 
 import com.laifeng.sopcastsdk.configuration.AudioConfiguration;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.ShortBuffer;
 import java.util.Arrays;
 
 /**
@@ -26,10 +23,11 @@ public class AudioProcessor extends Thread {
     private AudioEncoder mAudioEncoder;
     private byte[] mRecordBuffer;
     private int mRecordBufferSize;
+    private AudioRealTimeListener mAudioRealTimeListener;
 
     public AudioProcessor(AudioRecord audioRecord, AudioConfiguration audioConfiguration) {
         mRecordBufferSize = AudioUtils.getRecordBufferSize(audioConfiguration);
-        mRecordBuffer =  new byte[mRecordBufferSize];
+        mRecordBuffer = new byte[mRecordBufferSize];
         mAudioRecord = audioRecord;
         mAudioEncoder = new AudioEncoder(audioConfiguration);
         mAudioEncoder.prepareEncoder();
@@ -39,9 +37,13 @@ public class AudioProcessor extends Thread {
         mAudioEncoder.setOnAudioEncodeListener(listener);
     }
 
+    public void setAudioRealTimeListener(AudioRealTimeListener listener) {
+        mAudioRealTimeListener = listener;
+    }
+
     public void stopEncode() {
         mStopFlag = true;
-        if(mAudioEncoder != null) {
+        if (mAudioEncoder != null) {
             mAudioEncoder.stop();
             mAudioEncoder = null;
         }
@@ -70,8 +72,11 @@ public class AudioProcessor extends Thread {
                     byte clearM = 0;
                     Arrays.fill(mRecordBuffer, clearM);
                 }
-                if(mAudioEncoder != null) {
+                if (mAudioEncoder != null) {
                     mAudioEncoder.offerEncoder(mRecordBuffer);
+                }
+                if (mAudioRealTimeListener != null) {
+                    mAudioRealTimeListener.onAudioDate(mRecordBuffer);
                 }
             }
         }

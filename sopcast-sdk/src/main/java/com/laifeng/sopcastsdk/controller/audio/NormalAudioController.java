@@ -2,13 +2,14 @@ package com.laifeng.sopcastsdk.controller.audio;
 
 import android.annotation.TargetApi;
 import android.media.AudioRecord;
+import android.util.Log;
 
+import com.laifeng.sopcastsdk.audio.AudioRealTimeListener;
 import com.laifeng.sopcastsdk.audio.OnAudioEncodeListener;
 import com.laifeng.sopcastsdk.configuration.AudioConfiguration;
 import com.laifeng.sopcastsdk.constant.SopCastConstant;
 import com.laifeng.sopcastsdk.audio.AudioProcessor;
 import com.laifeng.sopcastsdk.audio.AudioUtils;
-import com.laifeng.sopcastsdk.controller.audio.IAudioController;
 import com.laifeng.sopcastsdk.utils.SopCastLog;
 
 /**
@@ -22,6 +23,7 @@ import com.laifeng.sopcastsdk.utils.SopCastLog;
  */
 public class NormalAudioController implements IAudioController {
     private OnAudioEncodeListener mListener;
+    private AudioRealTimeListener mAudioRealTimeListener;
     private AudioRecord mAudioRecord;
     private AudioProcessor mAudioProcessor;
     private boolean mMute;
@@ -31,16 +33,31 @@ public class NormalAudioController implements IAudioController {
         mAudioConfiguration = AudioConfiguration.createDefault();
     }
 
+    @Override
     public void setAudioConfiguration(AudioConfiguration audioConfiguration) {
-        mAudioConfiguration = audioConfiguration;
+        if (audioConfiguration != null) {
+            mAudioConfiguration = audioConfiguration;
+        }
     }
 
+    @Override
     public void setAudioEncodeListener(OnAudioEncodeListener listener) {
         mListener = listener;
     }
 
+    @Override
+    public void setAudioRealTimeListener(AudioRealTimeListener listener) {
+        mAudioRealTimeListener = listener;
+        if (mAudioProcessor != null) {
+            mAudioProcessor.setAudioRealTimeListener(listener);
+        }
+    }
+
     public void start() {
         SopCastLog.d(SopCastConstant.TAG, "Audio Recording start");
+        if (mAudioProcessor != null) {
+            stop();
+        }
         mAudioRecord = AudioUtils.getAudioRecord(mAudioConfiguration);
         try {
             mAudioRecord.startRecording();
@@ -51,14 +68,17 @@ public class NormalAudioController implements IAudioController {
         mAudioProcessor.setAudioHEncodeListener(mListener);
         mAudioProcessor.start();
         mAudioProcessor.setMute(mMute);
+        if (mAudioRealTimeListener != null) {
+            mAudioProcessor.setAudioRealTimeListener(mAudioRealTimeListener);
+        }
     }
 
     public void stop() {
         SopCastLog.d(SopCastConstant.TAG, "Audio Recording stop");
-        if(mAudioProcessor != null) {
+        if (mAudioProcessor != null) {
             mAudioProcessor.stopEncode();
         }
-        if(mAudioRecord != null) {
+        if (mAudioRecord != null) {
             try {
                 mAudioRecord.stop();
                 mAudioRecord.release();
@@ -71,7 +91,7 @@ public class NormalAudioController implements IAudioController {
 
     public void pause() {
         SopCastLog.d(SopCastConstant.TAG, "Audio Recording pause");
-        if(mAudioRecord != null) {
+        if (mAudioRecord != null) {
             mAudioRecord.stop();
         }
         if (mAudioProcessor != null) {
@@ -81,7 +101,7 @@ public class NormalAudioController implements IAudioController {
 
     public void resume() {
         SopCastLog.d(SopCastConstant.TAG, "Audio Recording resume");
-        if(mAudioRecord != null) {
+        if (mAudioRecord != null) {
             mAudioRecord.startRecording();
         }
         if (mAudioProcessor != null) {
@@ -92,7 +112,7 @@ public class NormalAudioController implements IAudioController {
     public void mute(boolean mute) {
         SopCastLog.d(SopCastConstant.TAG, "Audio Recording mute: " + mute);
         mMute = mute;
-        if(mAudioProcessor != null) {
+        if (mAudioProcessor != null) {
             mAudioProcessor.setMute(mMute);
         }
     }
@@ -100,7 +120,7 @@ public class NormalAudioController implements IAudioController {
     @Override
     @TargetApi(16)
     public int getSessionId() {
-        if(mAudioRecord != null) {
+        if (mAudioRecord != null) {
             return mAudioRecord.getAudioSessionId();
         } else {
             return -1;

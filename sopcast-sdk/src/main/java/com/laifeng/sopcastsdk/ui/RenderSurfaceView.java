@@ -2,6 +2,7 @@ package com.laifeng.sopcastsdk.ui;
 
 import android.annotation.TargetApi;
 import android.content.Context;
+import android.graphics.PixelFormat;
 import android.opengl.GLSurfaceView;
 import android.os.Build;
 import android.util.AttributeSet;

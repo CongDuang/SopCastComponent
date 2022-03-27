@@ -12,6 +12,7 @@ import android.opengl.Matrix;
 
 import com.laifeng.sopcastsdk.camera.CameraData;
 import com.laifeng.sopcastsdk.camera.CameraHolder;
+import com.laifeng.sopcastsdk.entity.QrcodeResult;
 import com.laifeng.sopcastsdk.entity.Watermark;
 import com.laifeng.sopcastsdk.entity.WatermarkPosition;
 
@@ -39,16 +40,16 @@ public class RenderSrfTex {
     private final float[] mSymmetryMtx = GlUtil.createIdentityMtx();
     private final float[] mNormalMtx = GlUtil.createIdentityMtx();
 
-    private int mProgram         = -1;
+    private int mProgram = -1;
     private int maPositionHandle = -1;
     private int maTexCoordHandle = -1;
-    private int muSamplerHandle  = -1;
-    private int muPosMtxHandle   = -1;
+    private int muSamplerHandle = -1;
+    private int muPosMtxHandle = -1;
 
-    private EGLDisplay mSavedEglDisplay     = null;
+    private EGLDisplay mSavedEglDisplay = null;
     private EGLSurface mSavedEglDrawSurface = null;
     private EGLSurface mSavedEglReadSurface = null;
-    private EGLContext mSavedEglContext     = null;
+    private EGLContext mSavedEglContext = null;
 
     private int mVideoWidth = 0;
     private int mVideoHeight = 0;
@@ -58,6 +59,10 @@ public class RenderSrfTex {
     private Bitmap mWatermarkImg;
     private FloatBuffer mWatermarkVertexBuffer;
     private int mWatermarkTextureId = -1;
+
+    private QrcodeResult mQrcodeResult;
+    private FloatBuffer mQrcodeVertexBuffer;
+    private int mQrcodeTextureId = -1;
 
     public RenderSrfTex(int id, MyRecorder recorder) {
         mFboTexId = id;
@@ -73,45 +78,50 @@ public class RenderSrfTex {
         initWatermarkVertexBuffer(watermark.width, watermark.height, watermark.orientation, watermark.vMargin, watermark.hMargin);
     }
 
+    public void setQrcodeResult(QrcodeResult qrcodeResult) {
+        mQrcodeResult = qrcodeResult;
+        initQrcodeVertexBuffer();
+    }
+
     private void initWatermarkVertexBuffer(int width, int height, int orientation, int vMargin, int hMargin) {
 
         boolean isTop, isRight;
-        if(orientation == WatermarkPosition.WATERMARK_ORIENTATION_TOP_LEFT
+        if (orientation == WatermarkPosition.WATERMARK_ORIENTATION_TOP_LEFT
                 || orientation == WatermarkPosition.WATERMARK_ORIENTATION_TOP_RIGHT) {
             isTop = true;
         } else {
             isTop = false;
         }
 
-        if(orientation == WatermarkPosition.WATERMARK_ORIENTATION_TOP_RIGHT
+        if (orientation == WatermarkPosition.WATERMARK_ORIENTATION_TOP_RIGHT
                 || orientation == WatermarkPosition.WATERMARK_ORIENTATION_BOTTOM_RIGHT) {
             isRight = true;
         } else {
             isRight = false;
         }
 
-        float leftX = (mVideoWidth/2.0f - hMargin - width)/(mVideoWidth/2.0f);
-        float rightX = (mVideoWidth/2.0f - hMargin)/(mVideoWidth/2.0f);
+        float leftX = (mVideoWidth / 2.0f - hMargin - width) / (mVideoWidth / 2.0f);
+        float rightX = (mVideoWidth / 2.0f - hMargin) / (mVideoWidth / 2.0f);
 
-        float topY = (mVideoHeight/2.0f - vMargin)/(mVideoHeight/2.0f);
-        float bottomY = (mVideoHeight/2.0f - vMargin - height)/(mVideoHeight/2.0f);
+        float topY = (mVideoHeight / 2.0f - vMargin) / (mVideoHeight / 2.0f);
+        float bottomY = (mVideoHeight / 2.0f - vMargin - height) / (mVideoHeight / 2.0f);
 
         float temp;
 
-        if(!isRight) {
+        if (!isRight) {
             temp = leftX;
             leftX = -rightX;
             rightX = -temp;
         }
-        if(!isTop) {
+        if (!isTop) {
             temp = topY;
             topY = -bottomY;
             bottomY = -temp;
         }
-        final float watermarkCoords[]= {
-                leftX,  bottomY, 0.0f,
+        final float watermarkCoords[] = {
+                leftX, bottomY, 0.0f,
                 leftX, topY, 0.0f,
-                rightX,  bottomY, 0.0f,
+                rightX, bottomY, 0.0f,
                 rightX, topY, 0.0f
         };
         ByteBuffer bb = ByteBuffer.allocateDirect(watermarkCoords.length * 4);
@@ -119,6 +129,27 @@ public class RenderSrfTex {
         mWatermarkVertexBuffer = bb.asFloatBuffer();
         mWatermarkVertexBuffer.put(watermarkCoords);
         mWatermarkVertexBuffer.position(0);
+    }
+
+    private void initQrcodeVertexBuffer() {
+        float leftX = (mQrcodeResult.getX() - mVideoWidth / 2.0f - mQrcodeResult.getTextImg().getWidth()) / (mVideoWidth / 2.0f);
+        float rightX = (mQrcodeResult.getX() - mVideoWidth / 2.0f) / (mVideoWidth / 2.0f);
+
+        float topY = (mVideoHeight / 2.0f - mQrcodeResult.getY()) / (mVideoHeight / 2.0f);
+        float bottomY = (mVideoHeight / 2.0f - mQrcodeResult.getY() - mQrcodeResult.getTextImg().getHeight()) / (mVideoHeight / 2.0f);
+
+
+        final float qrcodeResultCoords[] = {
+                leftX, bottomY, 0.0f, // bottom left
+                leftX, topY, 0.0f,//top left
+                rightX, bottomY, 0.0f, // bottom right
+                rightX, topY, 0.0f// top right
+        };
+        ByteBuffer bb = ByteBuffer.allocateDirect(qrcodeResultCoords.length * 4);
+        bb.order(ByteOrder.nativeOrder());
+        mQrcodeVertexBuffer = bb.asFloatBuffer();
+        mQrcodeVertexBuffer.put(qrcodeResultCoords);
+        mQrcodeVertexBuffer.position(0);
     }
 
     public void setVideoSize(int width, int height) {
@@ -132,25 +163,25 @@ public class RenderSrfTex {
         CameraData cameraData = CameraHolder.instance().getCameraData();
         int width = cameraData.cameraWidth;
         int height = cameraData.cameraHeight;
-        if(CameraHolder.instance().isLandscape()) {
+        if (CameraHolder.instance().isLandscape()) {
             cameraWidth = Math.max(width, height);
             cameraHeight = Math.min(width, height);
         } else {
             cameraWidth = Math.min(width, height);
             cameraHeight = Math.max(width, height);
         }
-        float hRatio = mVideoWidth / ((float)cameraWidth);
-        float vRatio = mVideoHeight / ((float)cameraHeight);
+        float hRatio = mVideoWidth / ((float) cameraWidth);
+        float vRatio = mVideoHeight / ((float) cameraHeight);
 
         float ratio;
-        if(hRatio > vRatio) {
+        if (hRatio > vRatio) {
             ratio = mVideoHeight / (cameraHeight * hRatio);
             final float vtx[] = {
                     //UV
-                    0f, 0.5f + ratio/2,
-                    0f, 0.5f - ratio/2,
-                    1f, 0.5f + ratio/2,
-                    1f, 0.5f - ratio/2,
+                    0f, 0.5f + ratio / 2,
+                    0f, 0.5f - ratio / 2,
+                    1f, 0.5f + ratio / 2,
+                    1f, 0.5f - ratio / 2,
             };
             ByteBuffer bb = ByteBuffer.allocateDirect(4 * vtx.length);
             bb.order(ByteOrder.nativeOrder());
@@ -158,13 +189,13 @@ public class RenderSrfTex {
             mCameraTexCoordBuffer.put(vtx);
             mCameraTexCoordBuffer.position(0);
         } else {
-            ratio = mVideoWidth/ (cameraWidth * vRatio);
+            ratio = mVideoWidth / (cameraWidth * vRatio);
             final float vtx[] = {
                     //UV
-                    0.5f - ratio/2, 1f,
-                    0.5f - ratio/2, 0f,
-                    0.5f + ratio/2, 1f,
-                    0.5f + ratio/2, 0f,
+                    0.5f - ratio / 2, 1f,
+                    0.5f - ratio / 2, 0f,
+                    0.5f + ratio / 2, 1f,
+                    0.5f + ratio / 2, 0f,
             };
             ByteBuffer bb = ByteBuffer.allocateDirect(4 * vtx.length);
             bb.order(ByteOrder.nativeOrder());
@@ -208,12 +239,12 @@ public class RenderSrfTex {
 
             //处理前置摄像头镜像
             CameraData cameraData = CameraHolder.instance().getCameraData();
-            if(cameraData != null) {
+            if (cameraData != null) {
                 int facing = cameraData.cameraFacing;
-                if(muPosMtxHandle>= 0) {
-                    if(facing == CameraData.FACING_FRONT) {
+                if (muPosMtxHandle >= 0) {
+                    if (facing == CameraData.FACING_FRONT) {
                         GLES20.glUniformMatrix4fv(muPosMtxHandle, 1, false, mSymmetryMtx, 0);
-                    }else {
+                    } else {
                         GLES20.glUniformMatrix4fv(muPosMtxHandle, 1, false, mNormalMtx, 0);
                     }
                 }
@@ -226,6 +257,9 @@ public class RenderSrfTex {
             //绘制纹理
             drawWatermark();
 
+            // 扫码结果
+            drawQrCodeResult();
+
             mRecorder.swapBuffers();
 
             GlUtil.checkGlError("draw_E");
@@ -235,7 +269,7 @@ public class RenderSrfTex {
 
 
     private void drawWatermark() {
-        if(mWatermarkImg == null) {
+        if (mWatermarkImg == null) {
             return;
         }
         GLES20.glUniformMatrix4fv(muPosMtxHandle, 1, false, mNormalMtx, 0);
@@ -249,7 +283,7 @@ public class RenderSrfTex {
                 2, GLES20.GL_FLOAT, false, 4 * 2, mNormalTexCoordBuf);
         GLES20.glEnableVertexAttribArray(maTexCoordHandle);
 
-        if(mWatermarkTextureId == -1) {
+        if (mWatermarkTextureId == -1) {
             int[] textures = new int[1];
             GLES20.glGenTextures(1, textures, 0);
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textures[0]);
@@ -265,6 +299,51 @@ public class RenderSrfTex {
             mWatermarkTextureId = textures[0];
         }
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mWatermarkTextureId);
+
+        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+        GLES20.glEnable(GLES20.GL_BLEND);
+
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+        GLES20.glDisable(GLES20.GL_BLEND);
+    }
+
+    /**
+     * 绘制图片
+     *
+     * @author 马世鹏
+     * @date 2021年5月28日15:13:30
+     */
+    private void drawQrCodeResult() {
+        if (mQrcodeResult == null || mQrcodeResult.getTextImg() == null) {
+            return;
+        }
+        mQrcodeVertexBuffer.position(0);
+        GLES20.glVertexAttribPointer(maPositionHandle,
+                3, GLES20.GL_FLOAT, false, 4 * 3, mQrcodeVertexBuffer);
+        GLES20.glEnableVertexAttribArray(maPositionHandle);
+
+        mNormalTexCoordBuf.position(0);
+        GLES20.glVertexAttribPointer(maTexCoordHandle,
+                2, GLES20.GL_FLOAT, false, 4 * 2, mNormalTexCoordBuf);
+        GLES20.glEnableVertexAttribArray(maTexCoordHandle);
+
+        if (mQrcodeTextureId == -1) {
+            int[] textures = new int[1];
+            GLES20.glGenTextures(1, textures, 0);
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textures[0]);
+            mQrcodeTextureId = textures[0];
+        }
+
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mQrcodeTextureId);
+        GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, mQrcodeResult.getTextImg(), 0);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER,
+                GLES20.GL_LINEAR);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER,
+                GLES20.GL_LINEAR);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S,
+                GLES20.GL_CLAMP_TO_EDGE);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T,
+                GLES20.GL_CLAMP_TO_EDGE);
 
         GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
         GLES20.glEnable(GLES20.GL_BLEND);
@@ -294,11 +373,11 @@ public class RenderSrfTex {
                         "void main() {\n" +
                         "  gl_FragColor = texture2D(uSampler, textureCoordinate);\n" +
                         "}\n";
-        mProgram         = GlUtil.createProgram(vertexShader, fragmentShader);
+        mProgram = GlUtil.createProgram(vertexShader, fragmentShader);
         maPositionHandle = GLES20.glGetAttribLocation(mProgram, "position");
         maTexCoordHandle = GLES20.glGetAttribLocation(mProgram, "inputTextureCoordinate");
-        muSamplerHandle  = GLES20.glGetUniformLocation(mProgram, "uSampler");
-        muPosMtxHandle   = GLES20.glGetUniformLocation(mProgram, "uPosMtx");
+        muSamplerHandle = GLES20.glGetUniformLocation(mProgram, "uSampler");
+        muPosMtxHandle = GLES20.glGetUniformLocation(mProgram, "uPosMtx");
 
         Matrix.scaleM(mSymmetryMtx, 0, -1, 1, 1);
 
@@ -310,10 +389,10 @@ public class RenderSrfTex {
     }
 
     private void saveRenderState() {
-        mSavedEglDisplay     = EGL14.eglGetCurrentDisplay();
+        mSavedEglDisplay = EGL14.eglGetCurrentDisplay();
         mSavedEglDrawSurface = EGL14.eglGetCurrentSurface(EGL14.EGL_DRAW);
         mSavedEglReadSurface = EGL14.eglGetCurrentSurface(EGL14.EGL_READ);
-        mSavedEglContext     = EGL14.eglGetCurrentContext();
+        mSavedEglContext = EGL14.eglGetCurrentContext();
     }
 
     private void restoreRenderState() {

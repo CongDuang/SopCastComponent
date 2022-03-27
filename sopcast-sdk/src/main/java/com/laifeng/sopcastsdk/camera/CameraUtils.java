@@ -139,8 +139,11 @@ public class CameraUtils {
 
     private static void setOrientation(CameraData cameraData, boolean isLandscape, Camera camera) {
         int orientation = getDisplayOrientation(cameraData.cameraID);
-        if(isLandscape) {
-            orientation = orientation - 90;
+        // todo epson 逆时针旋转90 预览画面会是上下拉长的
+        if (Camera.getNumberOfCameras() > 1){
+            if (isLandscape) {
+                orientation = orientation - 90;
+            }
         }
         camera.setDisplayOrientation(orientation);
     }
