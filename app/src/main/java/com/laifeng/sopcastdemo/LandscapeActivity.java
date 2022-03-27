@@ -39,7 +39,7 @@ import static com.laifeng.sopcastsdk.constant.SopCastConstant.TAG;
 
 import java.io.File;
 
-public class LandscapeActivity extends Activity implements LocalSender.onLocalSenderListener {
+public class LandscapeActivity extends Activity implements LocalSender.OnLocalSenderListener {
     private CameraLivingView mLFLiveView;
     private MultiToggleImageButton mMicBtn;
     private MultiToggleImageButton mFlashBtn;
